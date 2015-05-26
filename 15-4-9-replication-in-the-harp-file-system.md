@@ -64,15 +64,15 @@ Scheme for Replicated Files](http://www2.cs.uh.edu/~paris/MYPAPERS/Icdcs86.pdf)
 
   ![harp_normal_1](images/15-5-18/1_harp_normal_1.png)
 
-  (1) Primary接收到客户端的操作请求后，Primary创建一个事件记录(event record)，将该事件记录append到log中，然后将日志信息发送给backup，backup接收到之后，也将事件记录append到log上。
+  (1) Primary接收到客户端的操作请求后，Primary创建一个事件记录(event record)，将该事件记录append到log中，然后将日志信息发送给backup，backup接收到之后，也将事件记录append到log上。（见上图）
 
   ![harp_normal_1](images/15-5-18/1_harp_normal_2.png)
 
-  (2) Backup将确认信息发送给Primary,在确认信息中,告知Primary目前backup已经收到索引n之前的所有事件记录.当Primary收到来自backup的告知确认信息后,Primary向前移动CP,提交事件.
+  (2) Backup将确认信息发送给Primary,在确认信息中,告知Primary目前backup已经收到索引n之前的所有事件记录.当Primary收到来自backup的告知确认信息后,Primary向前移动CP,提交事件.（见上图）
 
   ![harp_normal_1](images/15-5-18/1_harp_normal_3.png)
 
-  (3) Primary将CP值发送给backup,backup也维持一个CP,存储着接收到的最大的CP.
+  (3) Primary将CP值发送给backup,backup也维持一个CP,存储着接收到的最大的CP.（见上图）
 
   被commit的事件记录通过一个单独的进程:apply process来执行.Apply进程使用异步Unix文件系统操作来执行事件记录中的读写操作.Apply进程也维持一个索引指针 AP(Application point),记录着该进程的进度. 由于使用异步文件操作,所以Harp还使用了另外一个进程来追踪Apply进程执行的操作是否结束, 并维持一个索引指针:LB(Lower bound), <=LB的事件记录是全部作用到硬盘上的文件系统上了. 
 
@@ -103,28 +103,28 @@ t1之前不会在new view上执行write操作。Primary在t1之前还是在Prima
       
       ![2_harp_viewchange1_1](images/15-5-18/2_harp_viewchange1_1.png)
 
-      - (1)primary检测到backup失败，成为coordinator，向witness询问时候愿意进行view change。witness回复同意形成新的view。
+      (1)primary检测到backup失败，成为coordinator，向witness询问时候愿意进行view change。witness回复同意形成新的view。（见上图）
  
       ![2_harp_viewchange1_1](images/15-5-18/2_harp_viewchange1_2.png)
 
-      - (2)Primary收到witness的通知后，初始化new view的状态，并将new view的numbver写入到disk上，并将witness结点不知道的new view中的初始化状态发送给witness。因为witness的log为空，而且不参与文件系统的操作，所以，primary需要将log中索引大于GLB的log entry发送给witness。witness收到primary的信息后，将new view number写入到disk，并拥有自己的log，成为backup，参与后续的文件系统的同步。
-witness没有文件系统的拷贝，它不能将文件系统的操作提交到文件系统。那么witness是如何以backup的角色执行文件系统操作的呢？ witness有disk或tape，witness将old log entry保存到disk或tape上，向前移动LB指针，以此来模拟执行文件系统操作。witness会一直保存着log中的entry，不会执行discard操作，如果witness中的log大小溢出了，那么需要手动重新配置，或者将与已经删除的文件相关的操作从log中删除。
+      (2)Primary收到witness的通知后，初始化new view的状态，并将new view的numbver写入到disk上，并将witness结点不知道的new view中的初始化状态发送给witness。因为witness的log为空，而且不参与文件系统的操作，所以，primary需要将log中索引大于GLB的log entry发送给witness。witness收到primary的信息后，将new view number写入到disk，并拥有自己的log，成为backup，参与后续的文件系统的同步。
+witness没有文件系统的拷贝，它不能将文件系统的操作提交到文件系统。那么witness是如何以backup的角色执行文件系统操作的呢？ witness有disk或tape，witness将old log entry保存到disk或tape上，向前移动LB指针，以此来模拟执行文件系统操作。witness会一直保存着log中的entry，不会执行discard操作，如果witness中的log大小溢出了，那么需要手动重新配置，或者将与已经删除的文件相关的操作从log中删除。（见上图）
 
-      - 为减小view change所需的时间，在没有view change发生的情况下，witness接受primary的message（包括append log entry, advance CP），但是witness不回应primary，不执行commit操作。这样，在view change时，primary发送给witness的信息就很小了，加快view change的完成。
+      为减小view change所需的时间，在没有view change发生的情况下，witness接受primary的message（包括append log entry, advance CP），但是witness不回应primary，不执行commit操作。这样，在view change时，primary发送给witness的信息就很小了，加快view change的完成。
 
   - 第二种情况下的view change, (以backup recover为例)
 
       ![2_harp_viewchange1_1](images/15-5-18/2_harp_viewchange2_1.png)
 
-      - (1) backup 恢复后，成为new view的coordinator。如果backup的disk没有发生failure，那么backup直接与witness沟通，从witness那里读取log entry，恢复自己没有的log entry。并重新执行log（从失败之前的LB指针处开始执行）。如果backup的disk发生failure，那么backup就先从primary那里获取文件系统的状态，更新恢复自己的文件系统的状态。然后从witness那里读取failure之后产生的log。
+      (1) backup 恢复后，成为new view的coordinator。如果backup的disk没有发生failure，那么backup直接与witness沟通，从witness那里读取log entry，恢复自己没有的log entry。并重新执行log（从失败之前的LB指针处开始执行）。如果backup的disk发生failure，那么backup就先从primary那里获取文件系统的状态，更新恢复自己的文件系统的状态。然后从witness那里读取failure之后产生的log。（见上图）
 
       ![2_harp_viewchange1_1](images/15-5-18/2_harp_viewchange2_2.png)
 
-      - (2) log同步完成后，发起new view的coordinate。在次之前，primary没有停止运行，仍然与client交互完成文件系统的操作。backup向primary和witness发出new view的请求，primary和promoted witness同意形成new view。 primary停止工作，witness被降级，witness删除log数据,包括disk上和内存上的信息。
+      (2) log同步完成后，发起new view的coordinate。在次之前，primary没有停止运行，仍然与client交互完成文件系统的操作。backup向primary和witness发出new view的请求，primary和promoted witness同意形成new view。 primary停止工作，witness被降级，witness删除log数据,包括disk上和内存上的信息。（见上图）
 
       ![2_harp_viewchange1_1](images/15-5-18/2_harp_viewchange2_3.png)
    
-      - (3) backup收到其他两名成员的回复后，初始化new view的状态，将new view num写入到disk上，并将new view number发送给primary。primary将new view number写入到disk上。然后重新开始运行。
+      (3) backup收到其他两名成员的回复后，初始化new view的状态，将new view num写入到disk上，并将new view number发送给primary。primary将new view number写入到disk上。然后重新开始运行。（见上图）
 
 
 
